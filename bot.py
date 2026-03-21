@@ -1,246 +1,185 @@
 import os
 import logging
+import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application, CommandHandler, CallbackQueryHandler, ContextTypes
-)
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8566606318:AAF8IRAwUxct4WvO2zHWSkWShoBQtg9NNrY")
+CONTRACT  = "0x28b5cc805D90213D2699CC3B00e28e3f0fbeCA8e"
+WEBSITE   = "https://eurocoin.imperamonad.xyz"
+EXPLORER  = "https://monad.socialscan.io"
+RPC_URL   = "https://rpc.monad.xyz"
+CHAIN_ID  = 143
+PRICE_MON = 100
 
-BOT_TOKEN       = os.getenv("BOT_TOKEN", "8750468651:AAFmMxup8hgE5qLVtEfoXBkXuCl-SronxTE")
-WEBSITE         = "https://gemscoin.imperamonad.xyz"
-ICEBOX_WEBSITE  = "https://icebox.imperamonad.xyz"
-PYRATHOS_SITE   = "https://pyrathos.imperamonad.xyz"
-PORTFOLIO_SITE  = "https://imperamonad.xyz"
-GEMS_CONTRACT   = "0x49931887171BF46922b2b80Aa834537A80C50B70"
-ICEBOX_CONTRACT = "0xacCA7801fd5162eB7b0e8d4F62616c8B2e152BC2"
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
-BOXES = [
-    ("1",  "Amethyst Vault",  "💜", "Dark Baroque · Purple Crystal",     "SMALL → JACKPOT"),
-    ("2",  "Emerald Forest",  "💚", "Ancient Forest · Living Gold",       "SMALL → JACKPOT"),
-    ("3",  "Glacier Chest",   "🔵", "Arctic Ice · Frozen Lightning",      "SMALL → JACKPOT"),
-    ("4",  "Inferno Relic",   "🔴", "Fire & Ice · Ruby Heat",             "SMALL → JACKPOT"),
-    ("5",  "Prism Dragon",    "🌈", "Rainbow Crystal · Dragon Energy",    "MEDIUM → JACKPOT"),
-    ("6",  "Abyssal Trove",   "🩵", "Deep Ocean · Bioluminescence",       "SMALL → JACKPOT"),
-    ("7",  "Void Skull",      "☠️", "Dark Arts · Purple Lightning",       "EMPTY → JACKPOT"),
-    ("8",  "Nebula Chest",    "🌸", "Deep Space · Pink Galaxy",           "SMALL → JACKPOT"),
-    ("9",  "Lava Forge",      "🌋", "Volcano · Molten Gold",              "MEDIUM → JACKPOT"),
-    ("10", "CryptoVault",     "💻", "Blockchain · Circuit Neon",          "SMALL → JACKPOT"),
-    ("11", "Celestial Ark",   "👼", "Heavenly · Angel Guardian",          "MEDIUM → JACKPOT"),
-    ("12", "Pharaoh IceBox",  "👑", "Ancient Egypt · Solar Gold OMEGA",   "BIG → JACKPOT"),
-]
+def rpc_call(method, params):
+    try:
+        r = requests.post(RPC_URL, json={"jsonrpc":"2.0","id":1,"method":method,"params":params}, timeout=8)
+        return r.json().get("result")
+    except:
+        return None
 
-PRIZE_TIERS = """
-⬛ *EMPTY*   — Common · No reward
-🔴 *SMALL*   — Common · Small GEMS payout
-🟢 *MEDIUM*  — Uncommon · Mid GEMS payout
-💎 *BIG*     — Rare · Large GEMS payout
-🖼 *NFT*     — Very Rare · Rare NFT card
-🔮 *JACKPOT* — Legendary · Maximum GEMS
-"""
+def decode_uint(h):
+    return int(h, 16) if h and h != "0x" else 0
 
-# ── MAIN MENU KEYBOARD ──
-def main_menu_kb():
+def get_supply():
+    return decode_uint(rpc_call("eth_call", [{"to":CONTRACT,"data":"0x18160ddd"},"latest"])) / 1e18
+
+def get_enabled():
+    return decode_uint(rpc_call("eth_call", [{"to":CONTRACT,"data":"0x4c8d4f24"},"latest"])) != 0
+
+def main_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🧊 IceBox — Mint & Open",  url=ICEBOX_WEBSITE)],
-        [InlineKeyboardButton("🌐 GEMS Website",           url=WEBSITE)],
-        [InlineKeyboardButton("📦 View All 12 Boxes",      callback_data="boxes")],
-        [InlineKeyboardButton("🪙 GEMS Token Info",        callback_data="gems")],
-        [InlineKeyboardButton("🏆 Prize Tiers",            callback_data="tiers")],
-        [InlineKeyboardButton("📜 Smart Contracts",        callback_data="contracts")],
-        [InlineKeyboardButton("🚀 How To Mint",            callback_data="mint")],
-        [InlineKeyboardButton("🔥 More Projects",          callback_data="projects")],
+        [InlineKeyboardButton("💶 Buy Euro Coin", url=WEBSITE)],
+        [InlineKeyboardButton("📊 Live Stats", callback_data="stats"), InlineKeyboardButton("💰 Price", callback_data="price")],
+        [InlineKeyboardButton("📜 Contract", callback_data="contract"), InlineKeyboardButton("🚀 How To Buy", callback_data="howtobuy")],
+        [InlineKeyboardButton("🔗 Explorer", url=f"{EXPLORER}/address/{CONTRACT}"), InlineKeyboardButton("❓ Help", callback_data="help")],
+        [InlineKeyboardButton("🌐 Website", url=WEBSITE)],
     ])
 
-# ── /start ──
+def back_kb():
+    return InlineKeyboardMarkup([[InlineKeyboardButton("💶 Buy Now", url=WEBSITE), InlineKeyboardButton("⬅️ Back", callback_data="back")]])
+
+WELCOME = """
+💶 *EURO COIN — Monad Presale*
+━━━━━━━━━━━━━━━━━━━━
+
+The Euro-pegged token on *Monad Blockchain*!
+
+💰 Price: *100 MON = 1 EURO*
+⛓ Network: Monad Mainnet · Chain ID 143
+📋 Standard: ERC-20 · Decimals: 18
+
+🌐 eurocoin.imperamonad.xyz
+━━━━━━━━━━━━━━━━━━━━
+Choose an option below 👇
+"""
+
+HOW_TO_BUY = """
+🚀 *HOW TO BUY EURO COIN*
+━━━━━━━━━━━━━━━━━━━━
+
+*Step 1* — Connect Wallet
+MetaMask, WalletConnect, Trust Wallet or Rabby
+
+*Step 2* — Switch to Monad
+Chain ID: 143 added automatically!
+
+*Step 3* — Enter MON Amount
+100 MON = 1 EURO COIN
+
+*Step 4* — Buy and Receive
+EURO COIN sent instantly to your wallet!
+━━━━━━━━━━━━━━━━━━━━
+"""
+
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🧊 *GEMSROCK — Ice Box Rewards*\n\n"
-        "_Forged in Gold · Crowned in Crystal · Powered On-Chain_\n\n"
-        "💎 Earn GEMS on Monad Mainnet\n"
-        "🎮 Mint IceBox NFTs · Open · Claim GEMS\n"
-        "🌐 Website: gemscoin.imperamonad.xyz\n"
-        "🔥 Built on Monad Blockchain\n\n"
-        "🎲 12 unique boxes · 6 prize tiers · 100% on-chain\n\n"
-        "Choose an option below 👇",
-        parse_mode="Markdown",
-        reply_markup=main_menu_kb()
-    )
+    await update.message.reply_text(WELCOME, parse_mode="Markdown", reply_markup=main_kb())
 
-# ── /boxes ──
-async def boxes_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    msg = update.message or update.callback_query.message
-    text = "📦 *The 12 IceBoxes*\n\n"
-    for num, name, emoji, theme, tier in BOXES:
-        text += f"{emoji} *Box {num} — {name}*\n_{theme}_\n🎯 `{tier}`\n\n"
-    await msg.reply_text(
-        text, parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🧊 Mint IceBox Now", url=ICEBOX_WEBSITE)],
-            [InlineKeyboardButton("🌐 Full Collection", url=WEBSITE)],
-            [InlineKeyboardButton("🔙 Back to Menu",    callback_data="menu")],
-        ])
-    )
-
-# ── /gems ──
-async def gems_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    msg = update.message or update.callback_query.message
-    await msg.reply_text(
-        "🪙 *GEMS Token — ERC-20*\n\n"
-        f"📋 Contract:\n`{GEMS_CONTRACT}`\n\n"
-        "💰 *Supply Pools:*\n"
-        "├ PUBLIC SUPPLY → circulating\n"
-        "├ OWNER RESERVE → team\n"
-        "└ BOX REWARD POOL → prizes\n\n"
-        "⚡ GEMS auto-sent to wallet on box open!\n"
-        "🔗 ERC-20 · Decimals: 18\n\n"
-        f"🌐 {WEBSITE}",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🌐 GEMS Website",  url=WEBSITE)],
-            [InlineKeyboardButton("🔙 Back to Menu",  callback_data="menu")],
-        ])
-    )
-
-# ── /tiers ──
-async def tiers_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    msg = update.message or update.callback_query.message
-    await msg.reply_text(
-        "🏆 *Prize Tiers*\n" + PRIZE_TIERS + "\n💡 100% on-chain · Provably fair",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🧊 Try Your Luck", url=ICEBOX_WEBSITE)],
-            [InlineKeyboardButton("🔙 Back to Menu",  callback_data="menu")],
-        ])
-    )
-
-# ── /contracts ──
-async def contracts_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    msg = update.message or update.callback_query.message
-    await msg.reply_text(
-        "📜 *Smart Contracts — Monad Mainnet*\n\n"
-        f"🪙 *GEMS Token ERC-20*\n`{GEMS_CONTRACT}`\n\n"
-        f"📦 *IceBox NFT ERC-721*\n`{ICEBOX_CONTRACT}`\n\n"
-        "🔐 Fully automated on-chain payouts\n"
-        "🔗 Verified on Monad Explorer",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🌐 Website",       url=WEBSITE)],
-            [InlineKeyboardButton("🔙 Back to Menu",  callback_data="menu")],
-        ])
-    )
-
-# ── /mint ──
-async def mint_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    msg = update.message or update.callback_query.message
-    await msg.reply_text(
-        "🚀 *How To Mint an IceBox*\n\n"
-        "*Step 1* — Go to gemscoin.imperamonad.xyz\n"
-        "*Step 2* — Connect MetaMask or Rabby wallet\n"
-        "*Step 3* — Switch to Monad Mainnet (Chain ID: 143)\n"
-        "*Step 4* — Click Mint IceBox\n"
-        "*Step 5* — Open your box anytime\n"
-        "*Step 6* — GEMS auto-sent to your wallet! 💰\n\n"
-        f"📦 IceBox Contract:\n`{ICEBOX_CONTRACT}`",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🧊 Mint on Website", url=ICEBOX_WEBSITE)],
-            [InlineKeyboardButton("🔙 Back to Menu",    callback_data="menu")],
-        ])
-    )
-
-# ── /projects ──
-async def projects_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    msg = update.message or update.callback_query.message
-    await msg.reply_text(
-        "🔥 *More Projects by 00IMPERA*\n\n"
-        "🧊 IceBox NFT Mint\n"
-        "🪙 PYRATHOS Mining Token\n"
-        "⚛️ Quantum Engine NFT\n"
-        "🐉 Dragon Lock\n"
-        "🎰 Joker 777 Slot\n"
-        "📊 Monad DEX\n\n"
-        "All built on Monad Mainnet 🔥",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🧊 IceBox",         url=ICEBOX_WEBSITE)],
-            [InlineKeyboardButton("🪙 PYRATHOS Mining", url=PYRATHOS_SITE)],
-            [InlineKeyboardButton("🌐 All Projects",    url=PORTFOLIO_SITE)],
-            [InlineKeyboardButton("🔙 Back to Menu",    callback_data="menu")],
-        ])
-    )
-
-# ── /website ──
-async def website_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🌐 *GemsRock Websites*\n\n"
-        f"🧊 IceBox: {ICEBOX_WEBSITE}\n"
-        f"💎 GEMS: {WEBSITE}\n"
-        f"🏠 Portfolio: {PORTFOLIO_SITE}",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🧊 IceBox Website",  url=ICEBOX_WEBSITE)],
-            [InlineKeyboardButton("💎 GEMS Website",    url=WEBSITE)],
-            [InlineKeyboardButton("🏠 All Projects",    url=PORTFOLIO_SITE)],
-        ])
-    )
-
-# ── /help ──
 async def help_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 *GemsRock Bot Commands*\n\n"
-        "/start — Main menu\n"
-        "/boxes — All 12 IceBoxes\n"
-        "/gems — GEMS token info\n"
-        "/tiers — Prize tiers\n"
-        "/contracts — Contract addresses\n"
-        "/mint — How to mint\n"
-        "/projects — All projects\n"
-        "/website — Visit websites\n"
-        "/help — This menu\n\n"
-        f"🌐 {WEBSITE}",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🧊 Open IceBox", url=ICEBOX_WEBSITE)],
-        ])
+        "❓ *Euro Coin Help*\n\n🌐 eurocoin.imperamonad.xyz\n\n"
+        "/start — Main menu\n/buy — Buy Euro Coin\n/stats — Live stats\n"
+        "/price — Current price\n/contract — Contract info\n/help — This menu",
+        parse_mode="Markdown", reply_markup=main_kb()
     )
 
-# ── BUTTON HANDLER ──
+async def buy_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        f"💶 *Buy Euro Coin*\n\n💰 Price: *{PRICE_MON} MON = 1 EURO*\n\n🌐 eurocoin.imperamonad.xyz",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💶 Buy Now", url=WEBSITE)]])
+    )
+
+async def stats_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    msg = await update.message.reply_text("⏳ Fetching live stats...")
+    supply = get_supply()
+    enabled = get_enabled()
+    await msg.edit_text(
+        f"📊 *LIVE STATS*\n━━━━━━━━━━━━━━━━━━━━\n"
+        f"🪙 Total Supply: `{supply:,.2f} EURO`\n"
+        f"💰 Price: `{PRICE_MON} MON per EURO`\n"
+        f"🟢 Presale: `{'OPEN' if enabled else 'CLOSED'}`\n"
+        f"⛓ Monad #{CHAIN_ID}\n━━━━━━━━━━━━━━━━━━━━",
+        parse_mode="Markdown", reply_markup=main_kb()
+    )
+
+async def price_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        f"💰 *EURO COIN PRICE*\n━━━━━━━━━━━━━━━━━━━━\n"
+        f"🏷️ Rate: `{PRICE_MON} MON = 1 EURO`\n\n"
+        f"▸ 100 MON → 1 EURO\n▸ 500 MON → 5 EURO\n"
+        f"▸ 1000 MON → 10 EURO\n▸ 5000 MON → 50 EURO\n━━━━━━━━━━━━━━━━━━━━",
+        parse_mode="Markdown", reply_markup=back_kb()
+    )
+
+async def contract_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        f"📜 *CONTRACT INFO*\n━━━━━━━━━━━━━━━━━━━━\n"
+        f"💶 *EURO Token ERC-20*\n`{CONTRACT}`\n\n"
+        f"🔗 Monad · Chain ID: {CHAIN_ID}\n━━━━━━━━━━━━━━━━━━━━",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔗 Explorer", url=f"{EXPLORER}/address/{CONTRACT}"),
+            InlineKeyboardButton("⬅️ Back", callback_data="back")
+        ]])
+    )
+
 async def button(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
-    if q.data == "menu":
-        await q.message.reply_text(
-            "💎 *GemsRock Menu*\n\nChoose an option 👇",
-            parse_mode="Markdown",
-            reply_markup=main_menu_kb()
+    if q.data == "back":
+        await q.edit_message_text(WELCOME, parse_mode="Markdown", reply_markup=main_kb())
+    elif q.data == "stats":
+        supply = get_supply()
+        enabled = get_enabled()
+        await q.edit_message_text(
+            f"📊 *LIVE STATS*\n━━━━━━━━━━━━━━━━━━━━\n"
+            f"🪙 Total Supply: `{supply:,.2f} EURO`\n"
+            f"💰 Price: `{PRICE_MON} MON per EURO`\n"
+            f"🟢 Presale: `{'OPEN' if enabled else 'CLOSED'}`\n"
+            f"⛓ Monad #{CHAIN_ID}\n━━━━━━━━━━━━━━━━━━━━",
+            parse_mode="Markdown", reply_markup=main_kb()
         )
-    elif q.data == "boxes":     await boxes_cmd(update, ctx)
-    elif q.data == "gems":      await gems_cmd(update, ctx)
-    elif q.data == "tiers":     await tiers_cmd(update, ctx)
-    elif q.data == "contracts": await contracts_cmd(update, ctx)
-    elif q.data == "mint":      await mint_cmd(update, ctx)
-    elif q.data == "projects":  await projects_cmd(update, ctx)
+    elif q.data == "price":
+        await q.edit_message_text(
+            f"💰 *EURO COIN PRICE*\n━━━━━━━━━━━━━━━━━━━━\n"
+            f"🏷️ Rate: `{PRICE_MON} MON = 1 EURO`\n\n"
+            f"▸ 100 MON → 1 EURO\n▸ 500 MON → 5 EURO\n"
+            f"▸ 1000 MON → 10 EURO\n▸ 5000 MON → 50 EURO\n━━━━━━━━━━━━━━━━━━━━",
+            parse_mode="Markdown", reply_markup=back_kb()
+        )
+    elif q.data == "howtobuy":
+        await q.edit_message_text(HOW_TO_BUY, parse_mode="Markdown", reply_markup=back_kb())
+    elif q.data == "contract":
+        await q.edit_message_text(
+            f"📜 *CONTRACT*\n━━━━━━━━━━━━━━━━━━━━\n`{CONTRACT}`\nMonad #{CHAIN_ID}\n━━━━━━━━━━━━━━━━━━━━",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔗 Explorer", url=f"{EXPLORER}/address/{CONTRACT}"),
+                InlineKeyboardButton("⬅️ Back", callback_data="back")
+            ]])
+        )
+    elif q.data == "help":
+        await q.edit_message_text(
+            "❓ *Help*\n\n🌐 eurocoin.imperamonad.xyz\n\n/start /buy /stats /price /contract /help",
+            parse_mode="Markdown", reply_markup=main_kb()
+        )
 
-# ── MAIN ──
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start",     start))
-    app.add_handler(CommandHandler("boxes",     boxes_cmd))
-    app.add_handler(CommandHandler("gems",      gems_cmd))
-    app.add_handler(CommandHandler("tiers",     tiers_cmd))
-    app.add_handler(CommandHandler("contracts", contracts_cmd))
-    app.add_handler(CommandHandler("mint",      mint_cmd))
-    app.add_handler(CommandHandler("projects",  projects_cmd))
-    app.add_handler(CommandHandler("website",   website_cmd))
-    app.add_handler(CommandHandler("help",      help_cmd))
+    app.add_handler(CommandHandler("start",    start))
+    app.add_handler(CommandHandler("help",     help_cmd))
+    app.add_handler(CommandHandler("buy",      buy_cmd))
+    app.add_handler(CommandHandler("stats",    stats_cmd))
+    app.add_handler(CommandHandler("price",    price_cmd))
+    app.add_handler(CommandHandler("contract", contract_cmd))
     app.add_handler(CallbackQueryHandler(button))
-    logger.info("🚀 GemsRock Bot starting...")
-    app.run_polling(drop_pending_updates=True)
+    log.info("Euro Coin Bot started - eurocoin.imperamonad.xyz")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
