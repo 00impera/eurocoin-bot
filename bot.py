@@ -1,7 +1,7 @@
 import os
 import logging
 import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8566606318:AAF8IRAwUxct4WvO2zHWSkWShoBQtg9NNrY")
@@ -33,7 +33,7 @@ def get_enabled():
 
 def main_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💶 Buy Euro Coin", url=WEBSITE)],
+        [InlineKeyboardButton("💶 Open EUROSPACE App", web_app=WebAppInfo(url=WEBSITE))],
         [InlineKeyboardButton("📊 Live Stats", callback_data="stats"), InlineKeyboardButton("💰 Price", callback_data="price")],
         [InlineKeyboardButton("📜 Contract", callback_data="contract"), InlineKeyboardButton("🚀 How To Buy", callback_data="howtobuy")],
         [InlineKeyboardButton("🔗 Explorer", url=f"{EXPLORER}/address/{CONTRACT}"), InlineKeyboardButton("❓ Help", callback_data="help")],
