@@ -6,7 +6,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8566606318:AAF8IRAwUxct4WvO2zHWSkWShoBQtg9NNrY")
 CONTRACT  = "0x28b5cc805D90213D2699CC3B00e28e3f0fbeCA8e"
-WEBSITE   = "https://eurocoin.imperamonad.xyz"
+WEBSITE   = "https://winnowin-game.pages.dev"
 EXPLORER  = "https://monad.socialscan.io"
 RPC_URL   = "https://rpc.monad.xyz"
 CHAIN_ID  = 143
@@ -53,7 +53,7 @@ The Euro-pegged token on *Monad Blockchain*!
 ⛓ Network: Monad Mainnet · Chain ID 143
 📋 Standard: ERC-20 · Decimals: 18
 
-🌐 eurocoin.imperamonad.xyz
+🌐 winnowin-game.pages.dev
 ━━━━━━━━━━━━━━━━━━━━
 Choose an option below 👇
 """
@@ -81,7 +81,7 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def help_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "❓ *Euro Coin Help*\n\n🌐 eurocoin.imperamonad.xyz\n\n"
+        "❓ *Euro Coin Help*\n\n🌐 winnowin-game.pages.dev\n\n"
         "/start — Main menu\n/buy — Buy Euro Coin\n/stats — Live stats\n"
         "/price — Current price\n/contract — Contract info\n/help — This menu",
         parse_mode="Markdown", reply_markup=main_kb()
@@ -89,7 +89,7 @@ async def help_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def buy_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        f"💶 *Buy Euro Coin*\n\n💰 Price: *{PRICE_MON} MON = 1 EURO*\n\n🌐 eurocoin.imperamonad.xyz",
+        f"💶 *Buy Euro Coin*\n\n💰 Price: *{PRICE_MON} MON = 1 EURO*\n\n🌐 winnowin-game.pages.dev",
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💶 Buy Now", url=WEBSITE)]])
     )
@@ -165,7 +165,7 @@ async def button(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )
     elif q.data == "help":
         await q.edit_message_text(
-            "❓ *Help*\n\n🌐 eurocoin.imperamonad.xyz\n\n/start /buy /stats /price /contract /help",
+            "❓ *Help*\n\n🌐 winnowin-game.pages.dev\n\n/start /buy /stats /price /contract /help",
             parse_mode="Markdown", reply_markup=main_kb()
         )
 
@@ -178,7 +178,7 @@ def main():
     app.add_handler(CommandHandler("price",    price_cmd))
     app.add_handler(CommandHandler("contract", contract_cmd))
     app.add_handler(CallbackQueryHandler(button))
-    log.info("Euro Coin Bot started - eurocoin.imperamonad.xyz")
+    log.info("Euro Coin Bot started - winnowin-game.pages.dev")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
