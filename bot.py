@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 # ─── Config ─────────────────────────────────────────────────────────────────
 BOT_TOKEN  = os.getenv("BOT_TOKEN", "8566606318:AAF8IRAwUxct4WvO2zHWSkWShoBQtg9NNrY")
-WEBSITE    = "https://eurocoin-websitecom.nelutz2you.workers.dev"
+WEBSITE    = "https://d41e7edc.eurocoin-website.pages.dev"
 EXPLORER   = "https://monad.socialscan.io"
 RPC_URL    = "https://rpc.monad.xyz"
 CHAIN_ID   = 143
